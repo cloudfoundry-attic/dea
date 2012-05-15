@@ -11,7 +11,7 @@ gem 'thin'
 gem 'yajl-ruby', :require => ['yajl', 'yajl/json_gem']
 
 # FIXME: we should use the CF org instead of Jesse's personal repo...
-gem 'vcap_common', '~> 1.0.8', :git => 'git://github.com/d/vcap-common.git', :ref => '9673dced'
+gem 'vcap_common', '~> 1.0.8', :git => 'git://github.com/cloudfoundry/vcap-common.git', :ref => '9673dced'
 gem 'vcap_logging', :require => ['vcap/logging'], :git => 'git://github.com/cloudfoundry/common.git', :ref => 'e36886a1'
 
 group :test do
