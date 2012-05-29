@@ -14,6 +14,8 @@ gem 'yajl-ruby', :require => ['yajl', 'yajl/json_gem']
 gem 'vcap_common', '~> 1.0.8', :git => 'git://github.com/cloudfoundry/vcap-common.git', :ref => '9673dced'
 gem 'vcap_logging', :require => ['vcap/logging'], :git => 'git://github.com/cloudfoundry/common.git', :ref => 'e36886a1'
 
+gem 'sys-filesystem', '~> 1.0.0'
+
 group :test do
   gem "rspec"
   gem "rcov"
