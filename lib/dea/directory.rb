@@ -12,11 +12,17 @@ module DEA
   class FileServer < Rack::File
     # based on Rack::File, just add the NOFOLLOW flag
     def each
-      File.open(@path, File::RDONLY | File::NOFOLLOW) { |file|
-        while part = file.read(8192)
+      F.open(@path, File::RDONLY | File::NOFOLLOW | File::BINARY) do |file|
+        file.seek(@range.begin)
+        remaining_len = @range.end-@range.begin+1
+        while remaining_len > 0
+          part = file.read([8192, remaining_len].min)
+          break unless part
+          remaining_len -= part.length
+
           yield part
         end
-      }
+      end
     end
   end
 
