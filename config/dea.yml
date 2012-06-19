@@ -39,6 +39,12 @@ secure: false
 enforce_ulimit: false
 pid: /var/vcap/sys/run/dea.pid
 
+# when a DEA has the "prod" flag set to true, only the apps that have
+# "prod" flag will be run on that DEA.  When the DEA's prod flag is
+# set to false (default value), the prod flag of the application is
+# ignored.
+prod: false
+
 #Force droplets to be downloaded over http even when
 #there is a shared directory containing the droplet.
 force_http_sharing: true
