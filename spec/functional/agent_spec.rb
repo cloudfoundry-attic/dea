@@ -22,6 +22,11 @@ describe 'DEA Agent' do
     File.directory?(@test_dir).should be_true
     @file_port = VCAP.grab_ephemeral_port
 
+    @runtime = {'name'=>'ruby18',
+             'executable'=> ENV["VCAP_TEST_DEA_RUBY18"] || '/usr/bin/ruby1.8',
+             'version_output'=> '1.8.7',
+             'version_flag'=> "-e 'puts RUBY_VERSION'"}
+
     @tcpserver_droplet_bundle = File.join(@test_dir, 'droplet')
     create_droplet_bundle(@test_dir, @tcpserver_droplet_bundle)
     @droplet = droplet_for_bundle(@tcpserver_droplet_bundle)
@@ -61,13 +66,7 @@ describe 'DEA Agent' do
       'enforce_ulimit' => true,
       'local_route'  => '127.0.0.1',
       'pid'          => File.join(@run_dir, 'dea.pid'),
-      'runtimes'     => {
-        'ruby18' => {
-          'executable'        => ENV["VCAP_TEST_DEA_RUBY18"] || '/usr/bin/ruby1.8',
-          'version'           => '1.8.7',
-          'version_flag'      => "-e 'puts RUBY_VERSION'"
-        }
-      },
+      'runtimes'     => ['ruby18'],
       'disable_dir_cleanup' => false,
       'force_http_sharing' => true,
       'droplet_fs_percent_used_threshold' => 100, # don't fail if a developer's machine is almost full
@@ -136,7 +135,8 @@ describe 'DEA Agent' do
     end
 
     it 'should respond to discover requests' do
-      disc_msg = {'droplet' => 1, 'runtime' => 'ruby18', 'limits' => {'mem' => 1}}.to_json
+      disc_msg = {'droplet' => 1, 'runtime_info' => @runtime ,
+          'limits' => {'mem' => 1}}.to_json
       send_request(@nats_server.uri, 'dea.discover', disc_msg).should_not be_nil
     end
 
@@ -239,7 +239,7 @@ describe 'DEA Agent' do
     disc_msg = {
       'droplet'        => 1,
       'sha1'           => 22,
-      'runtime'        => 'ruby18',
+      'runtime_info'   =>  @runtime,
       'limits'         => { 'mem' => 1 }
     }.to_json()
 
@@ -321,7 +321,7 @@ describe 'DEA Agent' do
       'uris'     => ['test_app.vcap.me'],
       'executableFile' => bundle_filename,
       'executableUri'  => "http://localhost:#{@file_port}/droplet",
-      'runtime'        => 'ruby18',
+      'runtime_info'   => @runtime,
       'framework'      => 'sinatra'
     }
   end

@@ -10,8 +10,9 @@ require 'bundler/setup'
 
 require 'dea/agent'
 
-cfg_path = ENV["CLOUD_FOUNDRY_CONFIG_PATH"] || File.join(File.dirname(__FILE__), '../config')
-cfg_overrides = { 'config_file' => File.join(cfg_path, 'dea.yml') }
+cfg_path = ENV["CLOUD_FOUNDRY_CONFIG_PATH"]
+cfg_overrides = {}
+cfg_overrides['config_file'] = File.join(cfg_path, 'dea.yml') if cfg_path
 
 options = OptionParser.new do |opts|
   opts.banner = 'Usage: dea [OPTIONS]'
@@ -30,6 +31,12 @@ options = OptionParser.new do |opts|
   end
 end
 options.parse!(ARGV.dup)
+
+unless cfg_overrides['config_file']
+  puts "Config file location not specified. Please run with --config argument " +
+    "or set CLOUD_FOUNDRY_CONFIG_PATH"
+  exit 1
+end
 
 begin
   config = File.open(cfg_overrides['config_file']) do |f|

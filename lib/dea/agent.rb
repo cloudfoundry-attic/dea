@@ -78,6 +78,8 @@ module DEA
     DROPLET_FS_PERCENT_USED_THRESHOLD = 95
     DROPLET_FS_PERCENT_USED_UPDATE_INTERVAL = 2
 
+    RUNTIME_VERSION_KEYS = %w[version_flag version_output executable additional_checks]
+
     def initialize(config)
       VCAP::Logging.setup_from_config(config['logging'])
       @logger = VCAP::Logging.logger('dea')
@@ -98,7 +100,14 @@ module DEA
       @dea_ruby = config['dea_ruby'] || `which ruby`.strip
       verify_ruby(@dea_ruby)
 
-      @runtimes = config['runtimes']
+      @runtimes = {}
+      @runtime_names = config['runtimes'] || []
+      unless @runtime_names.kind_of? Array
+        @logger.fatal("Config['runtimes'] should be a list of supported runtime names.  " +
+           "Please migrate additional properties to the  runtimes.yml file located in the " +
+           "Cloud Controller and/or Stager.")
+         exit 1
+      end
 
       @prod = config['prod']
 
@@ -164,8 +173,6 @@ module DEA
       setup_secure_mode
 
       @logger.info("Using ruby @ #{@dea_ruby}")
-
-      Bundler.with_clean_env { setup_runtimes }
 
       @logger.info("Using network: #{@local_ip}")
 
@@ -309,7 +316,7 @@ module DEA
       advertise_message = {
         :id => VCAP::Component.uuid,
         :available_memory => @max_memory - @reserved_mem,
-        :runtimes => @runtimes.keys,
+        :runtimes => @runtime_names,
         :prod => @prod
       }
 
@@ -397,8 +404,8 @@ module DEA
         @logger.warn("Droplet FS has exceeded usage threshold, ignoring request")
       else
         # Check that we properly support the runtime requested
-        unless runtime_supported? message_json['runtime']
-          @logger.debug("Ignoring request, #{message_json['runtime']} runtime not supported.")
+         unless runtime_supported? message_json['runtime_info']
+          @logger.debug("Ignoring request, #{message_json['runtime_info']} runtime not supported.")
           return
         end
         # Ensure app's prod flag is set if DEA's prod flag is set
@@ -559,7 +566,7 @@ module DEA
       sha1 = message_json['sha1']
       app_env = message_json['env']
       users = message_json['users']
-      runtime = message_json['runtime']
+      runtime = message_json['runtime_info']
       framework = message_json['framework']
       debug = message_json['debug']
       console = message_json['console']
@@ -614,7 +621,7 @@ module DEA
         :disk_quota => disk  * (1024*1024),
         :fds_quota => num_fds,
         :state => :STARTING,
-        :runtime => runtime,
+        :runtime => runtime['name'],
         :framework => framework,
         :start => Time.now,
         :state_timestamp => Time.now.to_i,
@@ -1037,15 +1044,15 @@ module DEA
     end
 
     # Be conservative here..
-    def bind_local_runtime(instance_dir, runtime_name)
-      return unless instance_dir && runtime_name && runtime_supported?(runtime_name)
-      runtime = @runtimes[runtime_name]
+    def bind_local_runtime(instance_dir, requested_runtime)
+      return unless instance_dir && requested_runtime
+      runtime = @runtimes[requested_runtime['name']]
 
       startup = File.expand_path(File.join(instance_dir, 'startup'))
       return unless File.exists? startup
 
       startup_contents = File.read(startup)
-      new_startup = startup_contents.gsub!('%VCAP_LOCAL_RUNTIME%', runtime['executable'])
+      new_startup = startup_contents.gsub!('%VCAP_LOCAL_RUNTIME%', runtime['expanded_executable'])
       return unless new_startup
 
       FileUtils.chmod(0600, startup)
@@ -1686,13 +1693,14 @@ module DEA
       raise "Ruby @ '#{path_to_ruby}' isn't executable" unless File.executable?(path_to_ruby)
     end
 
-    def runtime_supported?(runtime_name)
-      unless runtime_name && runtime = @runtimes[runtime_name]
-        @logger.debug("Ignoring request, no suitable runtimes available for '#{runtime_name}'")
+    def runtime_supported?(runtime)
+      unless @runtime_names.include? runtime['name']
+        @logger.debug("Ignoring request, no suitable runtimes available for '#{runtime['name']}'")
         return false
       end
-      unless runtime['enabled']
-        @logger.debug("Ignoring request, runtime not enabled for '#{runtime_name}'")
+      initialize_runtime runtime
+      unless @runtimes[runtime['name']]['enabled']
+        @logger.debug("Ignoring request, runtime not enabled for '#{runtime['name']}'")
         return false
       end
       true
@@ -1708,18 +1716,27 @@ module DEA
       env
     end
 
-    # This determines out runtime support.
-    def setup_runtimes
-      if @runtimes.nil? || @runtimes.empty?
-        @logger.fatal("Can't determine application runtimes, exiting")
-        exit 1
-      end
-      @logger.info("Checking runtimes:")
+    # This determines our runtime support.
+    def initialize_runtime(requested_runtime)
+      Bundler.with_clean_env {
+        runtime = requested_runtime.dup
+        cached = true
+        if @runtimes[runtime['name']]
+          runtime['enabled'] = @runtimes[runtime['name']]['enabled']
+          runtime['expanded_executable'] = @runtimes[runtime['name']]['expanded_executable']
+          @runtimes[runtime['name']].each_pair do |key, value|
+            cached = false if ((RUNTIME_VERSION_KEYS.include? key) && (value != runtime[key]))
+          end
+        else
+          cached = false
+        end
+        @runtimes[runtime['name']]=runtime
+        return if cached
 
-      @runtimes.each do |name, runtime|
-        # Only enable when we succeed
+        @logger.debug("Initializing runtime '#{runtime['name']}'")
+
         runtime['enabled'] = false
-        pname = "#{name}:".ljust(10)
+        pname = "#{runtime['name']}:".ljust(10)
 
         # Check that we can get a version from the executable
         version_flag = runtime['version_flag'] || '-v'
@@ -1727,34 +1744,39 @@ module DEA
         expanded_exec = `which #{runtime['executable']}`
         unless $? == 0
           @logger.info("  #{pname} FAILED, executable '#{runtime['executable']}' not found")
-          next
+          return
         end
         expanded_exec.strip!
 
         # java prints to stderr, so munch them both..
         version_check = `env -i HOME=$HOME #{expanded_exec} #{version_flag} 2>&1`.strip!
         unless $? == 0
-          @logger.info("  #{pname} FAILED, executable '#{runtime['executable']}' not found")
-          next
+          @logger.info( "  #{pname} FAILED, unable to run version check command: #{expanded_exec} #{version_flag}")
+          return
         end
-        runtime['executable'] = expanded_exec
+        runtime['expanded_executable'] = expanded_exec
 
-        next unless runtime['version']
+        unless runtime['version_output']
+          @logger.info( "  #{pname} FAILED, no version_output specified.  Cannot perform version check")
+          return
+        end
+
         # Check the version for a match
-        if /#{runtime['version']}/ =~ version_check
+        if /#{runtime['version_output']}/ =~ version_check
           # Additional checks should return true
           if runtime['additional_checks']
-            additional_check = `env -i HOME=$HOME #{runtime['executable']} #{runtime['additional_checks']} 2>&1`
+            additional_check = `env -i HOME=$HOME #{runtime['expanded_executable']} #{runtime['additional_checks']} 2>&1`
             unless additional_check =~ /true/i
-              @logger.info("  #{pname} FAILED, additional checks failed")
+              @logger.info( "  #{pname} FAILED, additional checks failed")
+              return
             end
           end
           runtime['enabled'] = true
           @logger.info("  #{pname} OK")
         else
-          @logger.info("  #{pname} FAILED, version mismatch (#{version_check})")
+          @logger.info( "  #{pname} FAILED, version mismatch. Found #{version_check}.  Expected #{runtime['version_output']}")
         end
-      end
+      }
     end
 
     # Logs out the directory structure of the apps dir. This produces both a summary
