@@ -333,7 +333,8 @@ module DEA
         :instance => instance[:instance_id],
         :index => instance[:instance_index],
         :state => instance[:state],
-        :state_timestamp => instance[:state_timestamp]
+        :state_timestamp => instance[:state_timestamp],
+        :cc_partition => instance[:cc_partition]
       }
     end
 
@@ -563,6 +564,7 @@ module DEA
       debug = message_json['debug']
       console = message_json['console']
       flapping = message_json['flapping']
+      cc_partition = message_json['cc_partition']
 
       # Limits processing
       mem     = DEFAULT_APP_MEM
@@ -617,7 +619,8 @@ module DEA
         :start => Time.now,
         :state_timestamp => Time.now.to_i,
         :log_id => "(name=%s app_id=%s instance=%s index=%s)" % [name, droplet_id, instance_id, instance_index],
-        :flapping => flapping ? true : false
+        :flapping => flapping ? true : false,
+        :cc_partition => cc_partition
       }
 
       instances = @droplets[droplet_id] || {}
@@ -1376,6 +1379,7 @@ module DEA
         :instance => instance[:instance_id],
         :index => instance[:instance_index],
         :reason => instance[:exit_reason],
+        :cc_partition => instance[:cc_partition],
       }
       exit_message[:crash_timestamp] = instance[:state_timestamp] if instance[:state] == :CRASHED
       exit_message = exit_message.to_json
