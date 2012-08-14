@@ -34,16 +34,41 @@ module DEA
       system(cmd)
     end
 
-    def create_secure_user(username, uid)
-      @logger.info("Creating user:#{username} (#{uid})")
+    def create_secure_user(username)
+      @logger.info("Creating user: #{username}")
       if isLinux
-        system("adduser --system --shell '/bin/sh' --quiet --no-create-home --uid #{uid} --home '/nonexistent' #{username}  > /dev/null 2<&1")
-        system("usermod -g #{DEFAULT_SECURE_GROUP} #{username}  > /dev/null 2<&1")
+        # This tries to mimic `adduser --system` by disabling login and using empty GECOS.
+        # It can't use `--system` because that flag is incompatible with `--firstuid`.
+        args = [
+          "adduser",
+          "--firstuid %d" % (SECURE_UID_BASE + 1),
+          "--ingroup %s" % DEFAULT_SECURE_GROUP,
+          "--home /nonexistent",
+          "--no-create-home",
+          "--shell /bin/sh",
+          "--disabled-login",
+          "--gecos ''",
+          "--quiet",
+          username,
+        ]
+
+        system(args.join(" ") + "> /dev/null 2<&1")
       elsif isMacOSX
-        system("dscl . -create /Users/#{username} UniqueID #{uid}")
+        # This is a terrible fix, but anything to make #create_secure_user work without a UID
+        max_uid = system("dscl . list /Users UniqueID | awk '{ print $2 }' | sort -ug | tail -1").to_i
+        new_uid = [max_uid, SECURE_UID_BASE].max + 1
+
+        system("dscl . -create /Users/#{username} UniqueID #{new_uid}")
         system("dscl . -create /Users/#{username} PrimaryGroupID #{SECURE_UID_BASE}")
         system("dscl . -create /Users/#{username} UserShell /bin/bash")
       end
+
+      # Figure out uid of new user
+      command = "id -u #{username}"
+      uid = `#{command}`.to_i
+      raise "Could not execute: #{command}" unless $?.success?
+
+      uid
     end
 
     def check_existing_users
@@ -60,7 +85,7 @@ module DEA
         File.open('/etc/passwd') do |f|
           while (line = f.gets)
             if line =~ SECURE_USER_PATTERN
-              @secure_users <<  { :user => $1, :uid => $2, :available => true}
+              @secure_users <<  { :user => $1, :uid => $2.to_i, :available => true}
             end
           end
         end
@@ -79,7 +104,7 @@ module DEA
         @logger.info("Creating initial #{DEFAULT_NUM_SECURE_USERS} secure users")
         create_default_group
         (1..DEFAULT_NUM_SECURE_USERS).each do |i|
-          create_secure_user("#{SECURE_USER_STRING + i.to_s}", SECURE_UID_BASE+i)
+          create_secure_user("#{SECURE_USER_STRING + i.to_s}")
         end
       end
       grab_existing_users
@@ -97,8 +122,7 @@ module DEA
       num_secure_users = @secure_users.size
       next_index = (num_secure_users + 1)
       name = "#{SECURE_USER_STRING + next_index.to_s}"
-      uid = SECURE_UID_BASE + next_index
-      create_secure_user(name, uid)
+      uid = create_secure_user(name)
       user = { :user => name, :uid => uid, :available => true}
       @secure_users << user
       user
