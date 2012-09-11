@@ -409,7 +409,7 @@ module DEA
         # Pull resource limits and make sure we can accomodate
         limits = message_json['limits']
         mem_needed = limits['mem']
-        droplet_id = message_json['droplet'].to_i
+        droplet_id = message_json['droplet']
         if (@reserved_mem + mem_needed > @max_memory)
           @logger.warn('Ignoring request, not enough resources.')
           return
@@ -865,7 +865,7 @@ module DEA
       File.open(@app_state_file, 'r') { |f| recovered = Yajl::Parser.parse(f) }
       # Whip through and reconstruct droplet_ids and instance symbols correctly for droplets, state, etc..
       recovered.each_pair do |app_id, instances|
-        @droplets[app_id.to_i] = instances
+        @droplets[app_id] = instances
         instances.each_pair do |instance_id, instance|
           new_instance = {}
           instance.each_pair do |key, value|
