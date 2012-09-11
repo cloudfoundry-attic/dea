@@ -409,7 +409,7 @@ module DEA
         # Pull resource limits and make sure we can accomodate
         limits = message_json['limits']
         mem_needed = limits['mem']
-        droplet_id = message_json['droplet']
+        droplet_id = message_json['droplet'].to_s
         if (@reserved_mem + mem_needed > @max_memory)
           @logger.warn('Ignoring request, not enough resources.')
           return
@@ -436,7 +436,7 @@ module DEA
       message_json = JSON.parse(message)
       @logger.debug("DEA received find droplet message: #{message}")
 
-      droplet_id = message_json['droplet']
+      droplet_id = message_json['droplet'].to_s
       version = message_json['version']
       instance_ids = message_json['instances'] ? Set.new(message_json['instances']) : nil
       indices = message_json['indices'] ? Set.new(message_json['indices']) : nil
@@ -494,7 +494,7 @@ module DEA
       @logger.debug("DEA received update message: #{message}")
       return unless message_json
 
-      droplet_id = message_json['droplet']
+      droplet_id = message_json['droplet'].to_s
       droplet = @droplets[droplet_id]
 
       if droplet
@@ -518,7 +518,7 @@ module DEA
       message_json = JSON.parse(message)
       @logger.debug("DEA received stop message: #{message}")
 
-      droplet_id   = message_json['droplet']
+      droplet_id   = message_json['droplet'].to_s
       version      = message_json['version']
       instance_ids = message_json['instances'] ? Set.new(message_json['instances']) : nil
       indices      = message_json['indices'] ? Set.new(message_json['indices']) : nil
@@ -548,7 +548,7 @@ module DEA
 
       instance_id = VCAP.secure_uuid
 
-      droplet_id = message_json['droplet']
+      droplet_id = message_json['droplet'].to_s
       instance_index = message_json['index']
       services = message_json['services']
       version = message_json['version']
@@ -865,7 +865,7 @@ module DEA
       File.open(@app_state_file, 'r') { |f| recovered = Yajl::Parser.parse(f) }
       # Whip through and reconstruct droplet_ids and instance symbols correctly for droplets, state, etc..
       recovered.each_pair do |app_id, instances|
-        @droplets[app_id] = instances
+        @droplets[app_id.to_s] = instances
         instances.each_pair do |instance_id, instance|
           new_instance = {}
           instance.each_pair do |key, value|
