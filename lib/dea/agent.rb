@@ -1138,11 +1138,13 @@ module DEA
 
     # The format used by VCAP_SERVICES
     def create_services_for_env(services=[])
-      whitelist = ['name', 'label', 'plan', 'tags', 'plan_option', 'credentials']
+      whitelist = ['name', 'plan', 'tags', 'plan_option', 'credentials', 'version', 'provider']
       svcs_hash = {}
       services.each do |svc|
         svcs_hash[svc['label']] ||= []
         svc_hash = {}
+        (raw_label, _) = svc['label'].split("-")
+        svc_hash['label'] = raw_label
         whitelist.each {|k| svc_hash[k] = svc[k] if svc[k]}
         svcs_hash[svc['label']] << svc_hash
       end
