@@ -335,7 +335,7 @@ module DEA
 
     def generate_heartbeat(instance)
       {
-        :droplet => instance[:droplet_id],
+        :droplet => instance[:droplet_id].to_s,
         :version => instance[:version],
         :instance => instance[:instance_id],
         :index => instance[:instance_index],
