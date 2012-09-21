@@ -1339,9 +1339,9 @@ module DEA
       # clean up the in memory instance and directory only if
       # the instance didn't crash or when it was marked as flapping
       if instance[:state] != :CRASHED || instance[:flapping]
-        if droplet = @droplets[instance[:droplet_id]]
+        if droplet = @droplets[instance[:droplet_id].to_s]
           droplet.delete(instance[:instance_id])
-          @droplets.delete(instance[:droplet_id]) if droplet.empty?
+          @droplets.delete(instance[:droplet_id].to_s) if droplet.empty?
           schedule_snapshot
         end
         unless @disable_dir_cleanup
