@@ -555,6 +555,12 @@ module DEA
 
       instance_id = VCAP.secure_uuid
 
+      # private_instance_id is internal id that represents the instance. Here we
+      # contatenate 2 UUIDs to genreate a 32 chars long private_instance_id.
+      # Currently, we broadcast private_instance_id to all routers. Routers use
+      # that as sticky session of the instance.
+      private_instance_id = VCAP.secure_uuid + VCAP.secure_uuid
+
       droplet_id = message_json['droplet'].to_s
       instance_index = message_json['index']
       services = message_json['services']
@@ -611,6 +617,7 @@ module DEA
       instance = {
         :droplet_id => droplet_id,
         :instance_id => instance_id,
+        :private_instance_id => private_instance_id,
         :instance_index => instance_index,
         :name => name,
         :dir => instance_dir,
@@ -1363,7 +1370,8 @@ module DEA
                      :host => @local_ip,
                      :port => instance[:port],
                      :uris => options[:uris] || instance[:uris],
-                     :tags => {:framework => instance[:framework], :runtime => instance[:runtime]}
+                     :tags => {:framework => instance[:framework], :runtime => instance[:runtime]},
+                     :private_instance_id => instance[:private_instance_id],
                    }.to_json)
     end
 
