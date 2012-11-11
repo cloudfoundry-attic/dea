@@ -153,6 +153,7 @@ module DEA
       end
 
       @nats_uri = config['mbus']
+      config['intervals'] ||= {}
       @heartbeat_interval = config['intervals']['heartbeat'] || 10
       @advertise_interval = config['intervals']['advertise'] || 5
 
