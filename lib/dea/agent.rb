@@ -81,6 +81,7 @@ module DEA
     RUNTIME_VERSION_KEYS = %w[version_flag version_output executable additional_checks]
 
     def initialize(config)
+      config['logging'] ||= { 'logging' => { 'level' => 'debug' }}
       VCAP::Logging.setup_from_config(config['logging'])
       @logger = VCAP::Logging.logger('dea')
       @secure = config['secure']
