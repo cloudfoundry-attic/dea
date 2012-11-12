@@ -260,6 +260,7 @@ module DEA
                            :password => status_config['password'])
 
         uuid = VCAP::Component.uuid
+        @logger.info("DEA uuid #{uuid}")
 
         # Setup our identity
         @hello_message = { :id => uuid, :ip => @local_ip, :port => @file_viewer_port, :version => VERSION }.freeze
