@@ -1355,7 +1355,7 @@ module DEA
           schedule_snapshot
         end
         unless @disable_dir_cleanup
-          @logger.debug("#{instance[:name]}: Cleaning up dir #{instance[:dir]}#{instance[:flapping]?' (flapping)':''}")
+          @logger.debug("#{instance[:name]}: Cleaning up dir #{instance[:dir]}#{instance[:flapping] ? ' (flapping)':''}")
           EM.system("rm -rf #{instance[:dir]}")
         end
       # Rechown crashed application directory using uid and gid of DEA
