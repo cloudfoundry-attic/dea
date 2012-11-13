@@ -690,7 +690,7 @@ module DEA
         end
 
         @logger.info("Starting up instance #{instance[:log_id]} on port:#{instance[:port]} " +
-                     "#{"debuger:" if instance[:debug_port]}#{instance[:debug_port]}" +
+                     "#{"debugger:" if instance[:debug_port]}#{instance[:debug_port]}" +
                      "#{"console:" if instance[:console_port]}#{instance[:console_port]}")
         @logger.debug("Clients: #{@num_clients}")
         @logger.debug("Reserved Memory Usage: #{@reserved_mem} MB of #{@max_memory} MB TOTAL")
